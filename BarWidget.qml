@@ -31,8 +31,10 @@ BarWidget {
   readonly property var recentEvents: state.recent_events || []
   readonly property var upcoming: state.upcoming || []
 
-  visible: label !== ""
-  implicitWidth: label !== "" ? row.implicitWidth + Style.space(14) : 0
+  // Always show at least the ball icon, even with no match to report —
+  // the click target (popup) stays reachable instead of vanishing outright.
+  visible: true
+  implicitWidth: row.implicitWidth + Style.space(14)
   implicitHeight: barSize
 
   FileView {
@@ -90,7 +92,7 @@ BarWidget {
       textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       text: root.label
-      visible: !root.vertical
+      visible: !root.vertical && root.label !== ""
       color: root.bar ? root.bar.barForeground : Color.bar.text
       font.family: root.bar ? root.bar.fontFamily : "monospace"
       font.pixelSize: Style.font.body
@@ -101,7 +103,7 @@ BarWidget {
     anchors.fill: parent
     cursorShape: Qt.PointingHandCursor
     onClicked: root.popupOpen = !root.popupOpen
-    onEntered: if (root.bar) root.bar.showTooltip(root, root.label)
+    onEntered: if (root.bar) root.bar.showTooltip(root, root.label || "Football Tracker")
     onExited: if (root.bar) root.bar.hideTooltip(root)
     hoverEnabled: true
   }
