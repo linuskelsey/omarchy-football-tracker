@@ -345,6 +345,59 @@ BarWidget {
           placeholderText: "e.g. Liverpool, Rosenborg"
         }
 
+        Text {
+          textFormat: Text.PlainText
+          text: "Live score polling"
+          color: Qt.darker(root.bar.foreground, 1.3)
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
+
+        Text {
+          textFormat: Text.PlainText
+          text: "Auto spreads today's live-match minutes across a ~100/day API"
+            + " budget automatically. Manual always uses the interval you pick,"
+            + " even if that risks running out of requests."
+          color: Qt.darker(root.bar.foreground, 1.4)
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.caption
+          width: parent.width
+          wrapMode: Text.WordWrap
+        }
+
+        Dropdown {
+          id: livePollModeDropdown
+          width: parent.width
+          value: root.config.live_poll_mode || "auto"
+          options: [
+            { value: "auto", label: "Auto (recommended)" },
+            { value: "manual", label: "Manual interval" }
+          ]
+          foreground: root.bar.foreground
+          onChanged: function(v) {
+            if (root.bar) root.bar.run("bash " + root.pluginDir + "bin/save-settings.sh --live-poll-mode " + Model.shQuote(v))
+          }
+        }
+
+        Dropdown {
+          id: livePollIntervalDropdown
+          width: parent.width
+          visible: livePollModeDropdown.value === "manual"
+          value: String(root.config.poll_interval_live_seconds || 180)
+          options: [
+            { value: "60", label: "Every 1 min" },
+            { value: "120", label: "Every 2 min" },
+            { value: "180", label: "Every 3 min" },
+            { value: "300", label: "Every 5 min" },
+            { value: "600", label: "Every 10 min" }
+          ]
+          foreground: root.bar.foreground
+          onChanged: function(v) {
+            if (root.bar) root.bar.run("bash " + root.pluginDir + "bin/save-settings.sh --live-poll-interval " + Model.shQuote(v))
+          }
+        }
+
         Row {
           spacing: Style.space(8)
 

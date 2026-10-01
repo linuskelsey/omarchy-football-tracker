@@ -62,7 +62,8 @@ fi
 config="$(ft_read_config)"
 teams_json="$(jq -c '.teams // []' <<<"$config")"
 team_count="$(jq 'length' <<<"$teams_json")"
-live_interval="$(jq -r '.poll_interval_live_seconds // 180' <<<"$config")"
+live_poll_mode="$(jq -r '.live_poll_mode // "auto"' <<<"$config")"
+manual_live_interval="$(jq -r '.poll_interval_live_seconds // 180' <<<"$config")"
 
 if [[ "$team_count" -eq 0 ]]; then
   ft_log "no favorite teams configured — run setup.sh"
@@ -147,6 +148,27 @@ next_match="$(jq -c 'sort_by(.kickoff) | .[0] // null' <<<"$fixtures")"
 # fixtures happening today (local date match, UTC-based approximation)
 todays="$(jq -c --arg today "$TODAY" '[.[] | select(.kickoff[0:10] == $today)]' <<<"$fixtures")"
 
+# Adaptive live-poll interval: spread today's total live-window minutes
+# (each fixture gets a fixed 130-minute window, same as the live-check
+# gate below) across a fixed daily API-call budget, so N matches today —
+# whether concurrent or at different kickoff times — stay within quota
+# instead of each independently polling every single poll.sh tick. "manual"
+# mode skips this and always uses poll_interval_live_seconds verbatim.
+if [[ "$live_poll_mode" == "manual" ]]; then
+  live_interval="$manual_live_interval"
+else
+  today_fixture_count="$(jq 'length' <<<"$todays")"
+  total_live_minutes=$(( today_fixture_count * 130 ))
+  live_budget_calls=$(( API_DAILY_BUDGET - FIXTURE_CACHE_CALLS_PER_DAY ))
+  target_checks=$(( live_budget_calls / 2 ))  # 2 API calls per live check
+  if [[ "$total_live_minutes" -gt 0 && "$target_checks" -gt 0 ]]; then
+    live_interval=$(( (total_live_minutes * 60 + target_checks - 1) / target_checks ))  # ceil
+    [[ "$live_interval" -lt 60 ]] && live_interval=60
+  else
+    live_interval="$manual_live_interval"
+  fi
+fi
+
 while IFS= read -r fx; do
   [[ -z "$fx" || "$fx" == "null" ]] && continue
   fid="$(jq -r '.fixture_id' <<<"$fx")"
@@ -198,6 +220,9 @@ while IFS= read -r fx; do
     fi
 
     if [[ "$continue_live_check" -eq 1 ]]; then
+    if [[ "$live_poll_mode" != "manual" ]]; then
+      ft_log "adaptive live interval: ${live_interval}s (${today_fixture_count} fixture(s) today, ${total_live_minutes} total live-window minutes)"
+    fi
     live_resp="$(ft_api "fixtures?live=all")" || live_resp=""
     live_api_err="$(jq -c '.errors // {}' <<<"$live_resp" 2>/dev/null)"
     if [[ -n "$live_api_err" && "$live_api_err" != "{}" && "$live_api_err" != "[]" ]]; then

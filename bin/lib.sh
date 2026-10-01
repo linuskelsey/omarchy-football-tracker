@@ -16,6 +16,12 @@ FIXTURES_CACHE="$STATE_DIR/fixtures_cache.json"
 
 API_BASE="https://v3.football.api-sports.io"
 
+# Adaptive live-polling budget (see poll.sh): a free API-Football plan
+# allows 100 requests/day; reserve a couple for the once-daily fixture
+# cache refresh and spend the rest on live-match checks (2 calls each).
+API_DAILY_BUDGET=100
+FIXTURE_CACHE_CALLS_PER_DAY=2
+
 mkdir -p "$CONFIG_DIR" "$STATE_DIR"
 
 ft_log() {
@@ -94,16 +100,18 @@ ft_read_config() {
   if [[ -f "$CONFIG_FILE" ]]; then
     cat "$CONFIG_FILE"
   else
-    echo '{"poll_interval_live_seconds":180,"teams":[],"has_api_key":false}'
+    echo '{"poll_interval_live_seconds":180,"live_poll_mode":"auto","teams":[],"has_api_key":false}'
   fi
 }
 
-# ft_write_config <teams-json-array> <poll-interval-seconds>
+# ft_write_config <teams-json-array> <poll-interval-seconds> [live-poll-mode]
+# live-poll-mode: "auto" (default — see poll.sh's adaptive calculation) or
+# "manual" (always use <poll-interval-seconds> as the live-check interval).
 ft_write_config() {
-  local teams="$1" interval="$2" has_key="false"
+  local teams="$1" interval="$2" mode="${3:-auto}" has_key="false"
   [[ -s "$API_KEY_FILE" ]] && has_key="true"
-  jq -n --argjson teams "$teams" --argjson interval "$interval" --argjson has_api_key "$has_key" \
-    '{teams:$teams, poll_interval_live_seconds:$interval, has_api_key:$has_api_key}' > "$CONFIG_FILE"
+  jq -n --argjson teams "$teams" --argjson interval "$interval" --arg mode "$mode" --argjson has_api_key "$has_key" \
+    '{teams:$teams, poll_interval_live_seconds:$interval, live_poll_mode:$mode, has_api_key:$has_api_key}' > "$CONFIG_FILE"
 }
 
 ft_write_state() {

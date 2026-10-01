@@ -22,11 +22,15 @@ source "$SCRIPT_DIR/lib.sh"
 new_api_key=""
 new_teams=""
 have_teams_arg=0
+new_live_poll_mode=""
+new_live_poll_interval=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --api-key) new_api_key="${2:-}"; shift 2 ;;
     --teams) new_teams="${2:-}"; have_teams_arg=1; shift 2 ;;
+    --live-poll-mode) new_live_poll_mode="${2:-}"; shift 2 ;;
+    --live-poll-interval) new_live_poll_interval="${2:-}"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -47,6 +51,7 @@ if [[ "$have_teams_arg" -eq 1 ]]; then
   config="$(ft_read_config)"
   existing_teams="$(jq -c '.teams // []' <<<"$config")"
   interval="$(jq -r '.poll_interval_live_seconds // 180' <<<"$config")"
+  mode="$(jq -r '.live_poll_mode // "auto"' <<<"$config")"
 
   # Desired names, trimmed, empty entries dropped, in the order given.
   desired_names="$(printf '%s' "$new_teams" | jq -R -c 'split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length > 0))')"
@@ -77,7 +82,7 @@ if [[ "$have_teams_arg" -eq 1 ]]; then
     ft_notify "Added $pname" "$pcountry — matched from \"$name\"" "goal.svg" "normal"
   done < <(jq -r '.[]' <<<"$desired_names")
 
-  ft_write_config "$resolved" "$interval"
+  ft_write_config "$resolved" "$interval" "$mode"
 
   # Force the cache to refresh on the next poll now that the roster changed.
   rm -f "$FIXTURES_CACHE"
@@ -87,5 +92,15 @@ elif [[ -n "$new_api_key" ]]; then
   # Teams weren't touched this call, but the has_api_key flag still needs
   # to reflect the key we just wrote above.
   config="$(ft_read_config)"
-  ft_write_config "$(jq -c '.teams // []' <<<"$config")" "$(jq -r '.poll_interval_live_seconds // 180' <<<"$config")"
+  ft_write_config "$(jq -c '.teams // []' <<<"$config")" \
+    "$(jq -r '.poll_interval_live_seconds // 180' <<<"$config")" \
+    "$(jq -r '.live_poll_mode // "auto"' <<<"$config")"
+fi
+
+if [[ -n "$new_live_poll_mode" || -n "$new_live_poll_interval" ]]; then
+  config="$(ft_read_config)"
+  mode="${new_live_poll_mode:-$(jq -r '.live_poll_mode // "auto"' <<<"$config")}"
+  interval="${new_live_poll_interval:-$(jq -r '.poll_interval_live_seconds // 180' <<<"$config")}"
+  ft_write_config "$(jq -c '.teams // []' <<<"$config")" "$interval" "$mode"
+  ft_log "live poll mode set to $mode (manual interval: ${interval}s)"
 fi
