@@ -143,7 +143,24 @@ prev_recent_events="$([[ -f "$STATE_FILE" ]] && jq -c '.recent_events // []' "$S
 recent_events='[]'
 
 live_match="null"
-next_match="$(jq -c 'sort_by(.kickoff) | .[0] // null' <<<"$fixtures")"
+
+# future_fixtures: fixtures that HAVEN'T kicked off yet, feeding both
+# next_match (earliest of these) and the popup's upcoming list. jq's
+# fromdateiso8601 rejects our "+00:00"-suffixed timestamps (only accepts a
+# literal "Z"), so do the epoch comparison in bash like the rest of this
+# file already does. Without this filter, a fixture whose kickoff has
+# already passed (and isn't resolvable as live — e.g. quota exhausted)
+# just sits there forever looking "upcoming" until the cache refreshes.
+future_fixtures="[]"
+while IFS= read -r fx; do
+  [[ -z "$fx" || "$fx" == "null" ]] && continue
+  k="$(jq -r '.kickoff' <<<"$fx")"
+  k_epoch="$(date -u -d "$k" +%s 2>/dev/null || echo 0)"
+  [[ "$k_epoch" -eq 0 || "$k_epoch" -le "$NOW_EPOCH" ]] && continue
+  future_fixtures="$(jq -c --argjson a "$future_fixtures" --argjson f "$fx" '$a + [$f]' <<<null)"
+done < <(jq -c '.[]' <<<"$fixtures")
+future_fixtures="$(jq -c 'sort_by(.kickoff)' <<<"$future_fixtures")"
+next_match="$(jq -c '.[0] // null' <<<"$future_fixtures")"
 
 # fixtures happening today (local date match, UTC-based approximation)
 todays="$(jq -c --arg today "$TODAY" '[.[] | select(.kickoff[0:10] == $today)]' <<<"$fixtures")"
@@ -314,7 +331,7 @@ done < <(jq -c '.[]' <<<"$todays")
 
 state="$(jq -n \
   --argjson next "$next_match" --argjson live "$live_match" \
-  --argjson recent "$recent_events" --argjson upcoming "$fixtures" \
+  --argjson recent "$recent_events" --argjson upcoming "$future_fixtures" \
   --argjson bk "$bookkeeping" \
   '{updated_at: (now | todateiso8601), next_match: $next, live_match: $live, recent_events: $recent, upcoming: $upcoming, _bookkeeping: $bk}')"
 ft_write_state "$state"
