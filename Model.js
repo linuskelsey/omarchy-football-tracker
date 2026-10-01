@@ -68,6 +68,14 @@ function barLabel(state) {
   return ""
 }
 
+// FotMob has no public API mapping an API-Football fixture id to one of
+// its own match pages, so this links to a Google search for the match
+// instead of a direct FotMob URL — one extra click, but it never breaks.
+function fotmobSearchLink(team, opponent) {
+  if (!team || !opponent) return ""
+  return "https://www.google.com/search?q=" + encodeURIComponent(team + " vs " + opponent + " fotmob")
+}
+
 function eventHeadline(ev) {
   switch (ev.type) {
     case "Goal": return (ev.detail && ev.detail.indexOf("Own") >= 0) ? "Own goal" : "Goal"
