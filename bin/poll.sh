@@ -135,6 +135,8 @@ bookkeeping="$(load_bookkeeping)"
 # fresh, so cards from a finished/previous match don't linger in the popup
 # forever once nothing is live.
 prev_live_fixture_id="$([[ -f "$STATE_FILE" ]] && jq -r '.live_match.fixture_id // empty' "$STATE_FILE" 2>/dev/null)"
+prev_live_match="$([[ -f "$STATE_FILE" ]] && jq -c '.live_match // null' "$STATE_FILE" 2>/dev/null || echo 'null')"
+[[ -z "$prev_live_match" ]] && prev_live_match='null'
 prev_recent_events="$([[ -f "$STATE_FILE" ]] && jq -c '.recent_events // []' "$STATE_FILE" 2>/dev/null || echo '[]')"
 [[ -z "$prev_recent_events" ]] && prev_recent_events='[]'
 recent_events='[]'
@@ -174,8 +176,41 @@ while IFS= read -r fx; do
 
   # live window: kickoff time through kickoff + 130 minutes
   if [[ "$NOW_EPOCH" -ge "$kickoff_epoch" && "$NOW_EPOCH" -le $((kickoff_epoch + 130*60)) ]]; then
+    # Throttle to poll_interval_live_seconds: the systemd timer still fires
+    # every 60s regardless, but a live match costs 2 API calls per check
+    # (fixtures?live=all + fixtures/events), which blows through a free-plan
+    # daily quota well before full time if we hit the API on every tick.
+    # While waiting out the interval (or once quota's gone, see below), keep
+    # showing the last known live score instead of silently reverting to the
+    # static next_match/kickoff label, which reads as "hasn't started yet".
+    last_live_check="$(jq -r --arg k "$key" '.[$k].live_check // 0' <<<"$bookkeeping")"
+    due_for_check=1
+    [[ "$last_live_check" =~ ^[0-9]+$ ]] && (( NOW_EPOCH - last_live_check < live_interval )) && due_for_check=0
+
+    if [[ "$due_for_check" -eq 0 ]]; then
+      if [[ "$prev_live_fixture_id" == "$fid" ]]; then
+        live_match="$prev_live_match"
+        recent_events="$prev_recent_events"
+      fi
+      continue_live_check=0
+    else
+      continue_live_check=1
+    fi
+
+    if [[ "$continue_live_check" -eq 1 ]]; then
     live_resp="$(ft_api "fixtures?live=all")" || live_resp=""
+    live_api_err="$(jq -c '.errors // {}' <<<"$live_resp" 2>/dev/null)"
+    if [[ -n "$live_api_err" && "$live_api_err" != "{}" && "$live_api_err" != "[]" ]]; then
+      ft_log "live fixtures API error for $team vs $opp: $live_api_err"
+    fi
+    bookkeeping="$(jq -c --arg k "$key" --argjson t "$NOW_EPOCH" '.[$k].live_check = $t' <<<"$bookkeeping")"
     live_fx="$(jq -c --argjson fid "$fid" '.response[]? | select(.fixture.id == $fid)' <<<"$live_resp" 2>/dev/null)"
+
+    if [[ -z "$live_fx" || "$live_fx" == "null" ]] && [[ -n "$live_api_err" && "$live_api_err" != "{}" && "$live_api_err" != "[]" ]] && [[ "$prev_live_fixture_id" == "$fid" ]]; then
+      ft_log "keeping last known live score for $team vs $opp (API error, see above)"
+      live_match="$prev_live_match"
+      recent_events="$prev_recent_events"
+    fi
 
     if [[ -n "$live_fx" && "$live_fx" != "null" ]]; then
       if [[ "$notified_ko" != "true" ]]; then
@@ -247,6 +282,7 @@ while IFS= read -r fx; do
       if [[ "$status_short" =~ ^(FT|AET|PEN)$ ]]; then
         ft_notify "Full time: $team $team_score-$opponent_score $opp" "$comp" "whistle.svg" "normal"
       fi
+    fi
     fi
   fi
 done < <(jq -c '.[]' <<<"$todays")
