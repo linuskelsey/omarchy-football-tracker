@@ -103,6 +103,7 @@ BarWidget {
 
       // --- live match ---
       Column {
+        id: liveMatchRow
         visible: root.liveMatch !== null
         width: parent.width
         spacing: Style.space(4)
@@ -123,6 +124,15 @@ BarWidget {
           color: Qt.darker(root.bar.foreground, 1.4)
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.caption
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          enabled: root.liveMatch !== null
+          onClicked: {
+            if (root.liveMatch) Qt.openUrlExternally(Model.fotmobSearchLink(root.liveMatch.team, root.liveMatch.opponent))
+          }
         }
       }
 
@@ -250,6 +260,12 @@ BarWidget {
               font.pixelSize: Style.font.caption
               width: parent.width
               wrapMode: Text.WordWrap
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: Qt.openUrlExternally(Model.fotmobSearchLink(modelData.team, modelData.opponent))
             }
           }
         }
