@@ -121,28 +121,34 @@ BarWidget {
       spacing: Style.space(10)
 
       // --- live match ---
-      Column {
+      Item {
         id: liveMatchRow
         visible: root.liveMatch !== null
         width: parent.width
-        spacing: Style.space(4)
+        height: liveMatchColumn.implicitHeight
 
-        Text {
-          textFormat: Text.PlainText
-          text: root.liveMatch ? (root.liveMatch.team + " " + root.liveMatch.team_score + " - " + root.liveMatch.opponent_score + " " + root.liveMatch.opponent) : ""
-          color: root.bar.foreground
-          font.family: root.bar.fontFamily
-          font.pixelSize: Style.font.subtitle
-          font.bold: true
+        Column {
+          id: liveMatchColumn
           width: parent.width
-          elide: Text.ElideRight
-        }
-        Text {
-          textFormat: Text.PlainText
-          text: root.liveMatch ? (root.liveMatch.competition + " · " + (root.liveMatch.elapsed || 0) + "'") : ""
-          color: Qt.darker(root.bar.foreground, 1.4)
-          font.family: root.bar.fontFamily
-          font.pixelSize: Style.font.caption
+          spacing: Style.space(4)
+
+          Text {
+            textFormat: Text.PlainText
+            text: root.liveMatch ? (root.liveMatch.team + " " + root.liveMatch.team_score + " - " + root.liveMatch.opponent_score + " " + root.liveMatch.opponent) : ""
+            color: root.bar.foreground
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.subtitle
+            font.bold: true
+            width: parent.width
+            elide: Text.ElideRight
+          }
+          Text {
+            textFormat: Text.PlainText
+            text: root.liveMatch ? (root.liveMatch.competition + " · " + (root.liveMatch.elapsed || 0) + "'") : ""
+            color: Qt.darker(root.bar.foreground, 1.4)
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.caption
+          }
         }
 
         MouseArea {
@@ -256,35 +262,42 @@ BarWidget {
         Repeater {
           model: root.upcoming.slice(0, 5)
 
-          Column {
+          Item {
+            id: upcomingRow
             required property var modelData
             width: parent.width
-            spacing: 0
+            height: upcomingColumn.implicitHeight
 
-            Text {
-              textFormat: Text.PlainText
-              text: modelData.team + " vs " + modelData.opponent
-              color: root.bar.foreground
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.bodySmall
-              font.bold: true
+            Column {
+              id: upcomingColumn
               width: parent.width
-              elide: Text.ElideRight
-            }
-            Text {
-              textFormat: Text.PlainText
-              text: Model.dayLabel(modelData.kickoff) + Model.kickoffClock(modelData.kickoff) + " · " + modelData.competition
-              color: Qt.darker(root.bar.foreground, 1.4)
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.caption
-              width: parent.width
-              wrapMode: Text.WordWrap
+              spacing: 0
+
+              Text {
+                textFormat: Text.PlainText
+                text: upcomingRow.modelData.team + " vs " + upcomingRow.modelData.opponent
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                font.bold: true
+                width: parent.width
+                elide: Text.ElideRight
+              }
+              Text {
+                textFormat: Text.PlainText
+                text: Model.dayLabel(upcomingRow.modelData.kickoff) + Model.kickoffClock(upcomingRow.modelData.kickoff) + " · " + upcomingRow.modelData.competition
+                color: Qt.darker(root.bar.foreground, 1.4)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.caption
+                width: parent.width
+                wrapMode: Text.WordWrap
+              }
             }
 
             MouseArea {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
-              onClicked: Qt.openUrlExternally(Model.fotmobSearchLink(modelData.team, modelData.opponent))
+              onClicked: Qt.openUrlExternally(Model.fotmobSearchLink(upcomingRow.modelData.team, upcomingRow.modelData.opponent))
             }
           }
         }
