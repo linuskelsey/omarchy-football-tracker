@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import qs.Ui
@@ -65,6 +66,19 @@ BarWidget {
       height: Style.font.body
       sourceSize.width: width
       sourceSize.height: height
+      // ball.svg ships a fixed near-white stroke (#e5e7eb) that doesn't
+      // adapt to the bar's theme — tint it to match the label text. goal.svg
+      // keeps its own deliberate green (it's a status color, not neutral).
+      visible: !!root.liveMatch
+      layer.enabled: !root.liveMatch
+    }
+
+    MultiEffect {
+      anchors.fill: glyph
+      source: glyph
+      visible: !root.liveMatch
+      colorization: 1.0
+      colorizationColor: root.bar ? root.bar.barForeground : Color.bar.text
     }
 
     Text {
@@ -72,7 +86,7 @@ BarWidget {
       anchors.verticalCenter: parent.verticalCenter
       text: root.label
       visible: !root.vertical
-      color: root.bar ? root.bar.barForeground : "white"
+      color: root.bar ? root.bar.barForeground : Color.bar.text
       font.family: root.bar ? root.bar.fontFamily : "monospace"
       font.pixelSize: Style.font.body
     }
