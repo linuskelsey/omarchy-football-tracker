@@ -58,27 +58,32 @@ BarWidget {
     anchors.centerIn: parent
     spacing: Style.space(6)
 
-    Image {
-      id: glyph
+    Item {
+      id: glyphFrame
       anchors.verticalCenter: parent.verticalCenter
-      source: root.liveMatch ? Qt.resolvedUrl("icons/goal.svg") : Qt.resolvedUrl("icons/ball.svg")
       width: Style.font.body
       height: Style.font.body
-      sourceSize.width: width
-      sourceSize.height: height
-      // ball.svg ships a fixed near-white stroke (#e5e7eb) that doesn't
-      // adapt to the bar's theme — tint it to match the label text. goal.svg
-      // keeps its own deliberate green (it's a status color, not neutral).
-      visible: !!root.liveMatch
-      layer.enabled: !root.liveMatch
-    }
 
-    MultiEffect {
-      anchors.fill: glyph
-      source: glyph
-      visible: !root.liveMatch
-      colorization: 1.0
-      colorizationColor: root.bar ? root.bar.barForeground : Color.bar.text
+      Image {
+        id: glyph
+        anchors.fill: parent
+        source: root.liveMatch ? Qt.resolvedUrl("icons/goal.svg") : Qt.resolvedUrl("icons/ball.svg")
+        sourceSize.width: width
+        sourceSize.height: height
+        // ball.svg ships a fixed near-white stroke (#e5e7eb) that doesn't
+        // adapt to the bar's theme — tint it to match the label text. goal.svg
+        // keeps its own deliberate green (it's a status color, not neutral).
+        visible: !!root.liveMatch
+        layer.enabled: !root.liveMatch
+      }
+
+      MultiEffect {
+        anchors.fill: glyph
+        source: glyph
+        visible: !root.liveMatch
+        colorization: 1.0
+        colorizationColor: root.bar ? root.bar.barForeground : Color.bar.text
+      }
     }
 
     Text {
